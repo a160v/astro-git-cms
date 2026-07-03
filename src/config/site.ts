@@ -11,7 +11,7 @@ export const SITE = {
   /** One-line description, used on the home page and in meta tags. */
   description: "Notes, posts and pictures from a small personal website.",
   /** Public URL of the deployed site (no trailing slash). */
-  url: "https://example.codeberg.page",
+  url: "https://aleks16.codeberg.page",
   /** Author name, used in feeds and meta tags. */
   author: "Your Name",
   /** BCP-47 language tag for the whole site. */
