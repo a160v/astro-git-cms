@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" role="img" aria-label="Sun rising over soft blue hills">
+  <rect width="600" height="600" fill="#dbeafe"/>
+  <circle cx="300" cy="330" r="110" fill="#fbbf24"/>
+  <path d="M0 420 Q150 320 300 420 T600 420 V600 H0 Z" fill="#60a5fa"/>
+  <path d="M0 480 Q200 400 400 490 T600 470 V600 H0 Z" fill="#3b82f6"/>
+</svg>
