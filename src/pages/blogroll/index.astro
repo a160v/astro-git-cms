@@ -1,0 +1,38 @@
+---
+import Base from "~/layouts/Base.astro";
+import { SITE } from "~/config/site";
+import { getPublished } from "~/lib/content";
+import { render } from "astro:content";
+
+const entries = (await getPublished("blogroll")).sort((a, b) =>
+  a.data.name.localeCompare(b.data.name),
+);
+const rendered = await Promise.all(entries.map(async (e) => ({ e, r: await render(e) })));
+---
+
+<Base title="Blogroll" description={`Sites and people ${SITE.author} follows.`}>
+  <div class="wrap wrap-wide">
+    <h1>Blogroll</h1>
+    <p class="muted">Sites I enjoy and recommend.</p>
+    <ul class="roll-grid">
+      {
+        rendered.map(({ e, r }) => {
+          const Content = r.Content;
+          return (
+            <li>
+              <a class="roll-card" href={e.data.url} rel="noopener">
+                {e.data.image && (
+                  <img src={e.data.image} alt={e.data.imageAlt ?? ""} loading="lazy" width="480" height="270" />
+                )}
+                <div class="roll-body">
+                  <strong>{e.data.name}</strong>
+                  <Content />
+                </div>
+              </a>
+            </li>
+          );
+        })
+      }
+    </ul>
+  </div>
+</Base>

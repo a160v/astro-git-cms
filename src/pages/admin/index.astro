@@ -1,0 +1,29 @@
+---
+import { SITE } from "~/config/site";
+import "~/styles/global.css";
+import "~/admin/admin.css";
+---
+
+<!doctype html>
+<html lang={SITE.locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Admin — {SITE.title}</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Admin" />
+  </head>
+  <body>
+    <div id="admin-app" aria-live="polite">
+      <div class="admin-view">
+        <p class="muted" style="padding-top: 2rem;">Loading admin…</p>
+        <noscript><p>The admin needs JavaScript — it talks to your git repository from this browser.</p></noscript>
+      </div>
+    </div>
+    <script>
+      import "~/admin/main";
+    </script>
+  </body>
+</html>

@@ -1,0 +1,35 @@
+---
+import Base from "~/layouts/Base.astro";
+import Comments from "~/components/Comments.astro";
+import { SITE } from "~/config/site";
+import { getPublished, formatDate, isoDate } from "~/lib/content";
+import { render } from "astro:content";
+
+export async function getStaticPaths() {
+  const pictures = await getPublished("pictures");
+  return pictures.map((pic) => ({ params: { id: pic.id }, props: { pic } }));
+}
+
+const { pic } = Astro.props;
+const { Content } = await render(pic);
+const title = pic.data.title ?? `Picture from ${formatDate(pic.data.date, SITE.locale)}`;
+---
+
+<Base title={title} description={pic.data.alt} type="article" image={pic.data.image}>
+  <article class="wrap">
+    <header>
+      <h1>{title}</h1>
+      <p class="entry-meta">
+        <time datetime={isoDate(pic.data.date)}>{formatDate(pic.data.date, SITE.locale)}</time>
+        {pic.data.draft && " · draft (not in production builds)"}
+      </p>
+    </header>
+    <figure style="margin: 1.5rem 0;">
+      <img src={pic.data.image} alt={pic.data.alt} style="border-radius: var(--radius);" />
+    </figure>
+    <div class="prose">
+      <Content />
+    </div>
+    <Comments mastodon={pic.data.mastodon} bluesky={pic.data.bluesky} />
+  </article>
+</Base>

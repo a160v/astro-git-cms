@@ -1,0 +1,42 @@
+# Send a post as a Brevo email campaign.
+#
+# Triggered from the admin ("Send as newsletter") or manually from the
+# repository's Actions tab. The Brevo API key lives here, in CI secrets —
+# it is never exposed to the browser.
+#
+# Required repository secrets:
+#   BREVO_API_KEY       Brevo API v3 key (Brevo → Settings → SMTP & API)
+#   BREVO_LIST_IDS      Comma-separated Brevo contact list IDs, e.g. "3"
+#   BREVO_SENDER_EMAIL  A sender address verified in Brevo
+#   BREVO_SENDER_NAME   Display name for the sender (optional)
+name: Send newsletter
+
+on:
+  workflow_dispatch:
+    inputs:
+      slug:
+        description: "Post slug (filename without .md)"
+        required: true
+
+jobs:
+  send:
+    runs-on: docker
+    container:
+      image: docker.io/oven/bun:1
+    steps:
+      - name: Install git and node
+        run: apt-get update && apt-get install -y git nodejs
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Send campaign
+        env:
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+          BREVO_LIST_IDS: ${{ secrets.BREVO_LIST_IDS }}
+          BREVO_SENDER_EMAIL: ${{ secrets.BREVO_SENDER_EMAIL }}
+          BREVO_SENDER_NAME: ${{ secrets.BREVO_SENDER_NAME }}
+        run: bun scripts/send-newsletter.ts "${{ github.event.inputs.slug }}"

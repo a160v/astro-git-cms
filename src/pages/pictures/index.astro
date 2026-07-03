@@ -1,0 +1,24 @@
+---
+import Base from "~/layouts/Base.astro";
+import { SITE } from "~/config/site";
+import { getPublished, byDateDesc } from "~/lib/content";
+
+const pictures = (await getPublished("pictures")).sort(byDateDesc);
+---
+
+<Base title="Pictures" description={`A photo feed from ${SITE.title}.`}>
+  <div class="wrap wrap-wide">
+    <h1>Pictures</h1>
+    <ul class="photo-grid">
+      {
+        pictures.map((pic) => (
+          <li>
+            <a href={`/pictures/${pic.id}`}>
+              <img src={pic.data.image} alt={pic.data.alt} loading="lazy" width="600" height="600" />
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</Base>

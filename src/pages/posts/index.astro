@@ -1,0 +1,40 @@
+---
+import Base from "~/layouts/Base.astro";
+import { SITE } from "~/config/site";
+import { getPublished, byDateDesc, formatDate, isoDate } from "~/lib/content";
+
+const posts = (await getPublished("posts")).sort(byDateDesc);
+const years = [...new Set(posts.map((p) => p.data.date.getUTCFullYear()))];
+---
+
+<Base title="Posts" description={`All posts on ${SITE.title}.`}>
+  <div class="wrap">
+    <h1>Posts</h1>
+    <div class="stack-lg">
+      {
+        years.map((year) => (
+          <section aria-labelledby={`year-${year}`}>
+            <h2 id={`year-${year}`}>{year}</h2>
+            <ul class="entry-list">
+              {posts
+                .filter((p) => p.data.date.getUTCFullYear() === year)
+                .map((post) => (
+                  <li>
+                    <h3>
+                      <a href={`/posts/${post.id}`}>{post.data.title}</a>
+                    </h3>
+                    <p class="entry-meta">
+                      <time datetime={isoDate(post.data.date)}>
+                        {formatDate(post.data.date, SITE.locale)}
+                      </time>
+                      {post.data.draft && " · draft"}
+                    </p>
+                  </li>
+                ))}
+            </ul>
+          </section>
+        ))
+      }
+    </div>
+  </div>
+</Base>
