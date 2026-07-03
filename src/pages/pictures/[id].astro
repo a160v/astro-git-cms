@@ -3,6 +3,7 @@ import Base from "~/layouts/Base.astro";
 import Comments from "~/components/Comments.astro";
 import { SITE } from "~/config/site";
 import { getPublished, formatDate, isoDate } from "~/lib/content";
+import { withBase } from "~/lib/url";
 import { render } from "astro:content";
 
 export async function getStaticPaths() {
@@ -25,7 +26,7 @@ const title = pic.data.title ?? `Picture from ${formatDate(pic.data.date, SITE.l
       </p>
     </header>
     <figure style="margin: 1.5rem 0;">
-      <img src={pic.data.image} alt={pic.data.alt} style="border-radius: var(--radius);" />
+      <img src={withBase(pic.data.image)} alt={pic.data.alt} style="border-radius: var(--radius);" />
     </figure>
     <div class="prose">
       <Content />

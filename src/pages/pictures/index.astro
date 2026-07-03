@@ -2,6 +2,7 @@
 import Base from "~/layouts/Base.astro";
 import { SITE } from "~/config/site";
 import { getPublished, byDateDesc } from "~/lib/content";
+import { withBase } from "~/lib/url";
 
 const pictures = (await getPublished("pictures")).sort(byDateDesc);
 ---
@@ -13,8 +14,8 @@ const pictures = (await getPublished("pictures")).sort(byDateDesc);
       {
         pictures.map((pic) => (
           <li>
-            <a href={`/pictures/${pic.id}`}>
-              <img src={pic.data.image} alt={pic.data.alt} loading="lazy" width="600" height="600" />
+            <a href={withBase(`/pictures/${pic.id}`)}>
+              <img src={withBase(pic.data.image)} alt={pic.data.alt} loading="lazy" width="600" height="600" />
             </a>
           </li>
         ))

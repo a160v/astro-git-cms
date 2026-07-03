@@ -3,6 +3,7 @@ import Base from "~/layouts/Base.astro";
 import NewsletterSignup from "~/components/NewsletterSignup.astro";
 import { SITE } from "~/config/site";
 import { getPublished, byDateDesc, formatDate, isoDate } from "~/lib/content";
+import { withBase } from "~/lib/url";
 import { render } from "astro:content";
 
 const posts = (await getPublished("posts")).sort(byDateDesc).slice(0, 5);
@@ -26,7 +27,7 @@ const renderedNotes = await Promise.all(
           posts.map((post) => (
             <li>
               <h3>
-                <a href={`/posts/${post.id}`}>{post.data.title}</a>
+                <a href={withBase(`/posts/${post.id}`)}>{post.data.title}</a>
               </h3>
               <p class="entry-meta">
                 <time datetime={isoDate(post.data.date)}>
@@ -39,7 +40,7 @@ const renderedNotes = await Promise.all(
           ))
         }
       </ul>
-      <p><a href="/posts">All posts →</a></p>
+      <p><a href={withBase("/posts")}>All posts →</a></p>
     </section>
 
     {
@@ -55,7 +56,7 @@ const renderedNotes = await Promise.all(
                     <Content />
                   </div>
                   <p class="entry-meta" style="margin-bottom: 0;">
-                    <a href={`/notes/${note.id}`}>
+                    <a href={withBase(`/notes/${note.id}`)}>
                       <time datetime={isoDate(note.data.date)}>
                         {formatDate(note.data.date, SITE.locale)}
                       </time>
@@ -66,7 +67,7 @@ const renderedNotes = await Promise.all(
             })}
           </ul>
           <p>
-            <a href="/notes">All notes →</a>
+            <a href={withBase("/notes")}>All notes →</a>
           </p>
         </section>
       )

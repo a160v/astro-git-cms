@@ -1,5 +1,6 @@
 ---
 import { SITE } from "~/config/site";
+import { withBase } from "~/lib/url";
 import Analytics from "~/components/Analytics.astro";
 import "~/styles/global.css";
 
@@ -24,7 +25,7 @@ const {
 
 const pageTitle = title ? `${title} — ${SITE.title}` : SITE.title;
 const canonical = new URL(Astro.url.pathname, SITE.url).href;
-const socialImage = image ? new URL(image, SITE.url).href : undefined;
+const socialImage = image ? new URL(withBase(image), SITE.url).href : undefined;
 const currentPath = Astro.url.pathname.replace(/\/$/, "") || "/";
 ---
 
@@ -37,10 +38,10 @@ const currentPath = Astro.url.pathname.replace(/\/$/, "") || "/";
     <meta name="description" content={description} />
     <meta name="generator" content={Astro.generator} />
     <link rel="canonical" href={canonical} />
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="alternate" type="application/rss+xml" title={`${SITE.title} — Posts`} href="/rss.xml" />
-    <link rel="alternate" type="application/rss+xml" title={`${SITE.title} — Notes`} href="/notes/rss.xml" />
-    <link rel="sitemap" href="/sitemap-index.xml" />
+    <link rel="icon" href={withBase("/favicon.svg")} type="image/svg+xml" />
+    <link rel="alternate" type="application/rss+xml" title={`${SITE.title} — Posts`} href={withBase("/rss.xml")} />
+    <link rel="alternate" type="application/rss+xml" title={`${SITE.title} — Notes`} href={withBase("/notes/rss.xml")} />
+    <link rel="sitemap" href={withBase("/sitemap-index.xml")} />
     {!indexable && <meta name="robots" content="noindex" />}
 
     <meta property="og:title" content={title ?? SITE.title} />
@@ -57,24 +58,28 @@ const currentPath = Astro.url.pathname.replace(/\/$/, "") || "/";
 
     <header class="site-header">
       <div class="wrap">
-        <a class="site-title" href="/">{SITE.title}</a>
+        <a class="site-title" href={withBase("/")}>{SITE.title}</a>
         <nav class="site-nav" aria-label="Main">
           <ul>
             {
-              SITE.nav.map((item) => (
-                <li>
-                  <a
-                    href={item.href}
-                    aria-current={
-                      currentPath === item.href || currentPath.startsWith(item.href + "/")
-                        ? "page"
-                        : undefined
-                    }
-                  >
-                    {item.label}
-                  </a>
-                </li>
-              ))
+              SITE.nav.map((item) => {
+                const href = withBase(item.href);
+                const target = href.replace(/\/$/, "") || "/";
+                return (
+                  <li>
+                    <a
+                      href={href}
+                      aria-current={
+                        currentPath === target || currentPath.startsWith(target + "/")
+                          ? "page"
+                          : undefined
+                      }
+                    >
+                      {item.label}
+                    </a>
+                  </li>
+                );
+              })
             }
           </ul>
         </nav>
@@ -89,7 +94,7 @@ const currentPath = Astro.url.pathname.replace(/\/$/, "") || "/";
       <div class="wrap">
         <p>© {new Date().getFullYear()} {SITE.author}</p>
         <p>
-          <a href="/rss.xml">RSS</a>
+          <a href={withBase("/rss.xml")}>RSS</a>
           {
             SITE.fediverse.creator && (
               <>

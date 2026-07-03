@@ -2,6 +2,7 @@
 import Base from "~/layouts/Base.astro";
 import { SITE } from "~/config/site";
 import { getPublished } from "~/lib/content";
+import { withBase } from "~/lib/url";
 import { render } from "astro:content";
 
 const entries = (await getPublished("blogroll")).sort((a, b) =>
@@ -22,7 +23,7 @@ const rendered = await Promise.all(entries.map(async (e) => ({ e, r: await rende
             <li>
               <a class="roll-card" href={e.data.url} rel="noopener">
                 {e.data.image && (
-                  <img src={e.data.image} alt={e.data.imageAlt ?? ""} loading="lazy" width="480" height="270" />
+                  <img src={withBase(e.data.image)} alt={e.data.imageAlt ?? ""} loading="lazy" width="480" height="270" />
                 )}
                 <div class="roll-body">
                   <strong>{e.data.name}</strong>

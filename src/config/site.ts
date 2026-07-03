@@ -10,8 +10,16 @@ export const SITE = {
   title: "My Quiet Corner",
   /** One-line description, used on the home page and in meta tags. */
   description: "Notes, posts and pictures from a small personal website.",
-  /** Public URL of the deployed site (no trailing slash). */
+  /** Public URL of the deployed site: origin only, no trailing slash, no sub-path. */
   url: "https://aleks16.codeberg.page",
+  /**
+   * Sub-path the site is served under, with leading and trailing slashes.
+   * Use "/" when the site is at the domain root (e.g. a repo named `pages`,
+   * served at https://you.codeberg.page/). Use "/repo-name/" when serving from
+   * another repo's `pages` branch (e.g. https://you.codeberg.page/repo-name/).
+   * The build's `base` is derived from this; every internal link respects it.
+   */
+  basePath: "/astro-git-cms/",
   /** Author name, used in feeds and meta tags. */
   author: "Your Name",
   /** BCP-47 language tag for the whole site. */

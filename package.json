@@ -9,6 +9,7 @@
     "preview": "astro preview",
     "check": "astro check",
     "test": "bun test",
+    "deploy": "bash scripts/deploy.sh",
     "newsletter": "bun scripts/send-newsletter.ts"
   },
   "dependencies": {
