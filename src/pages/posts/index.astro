@@ -2,6 +2,7 @@
 import Base from "~/layouts/Base.astro";
 import { SITE } from "~/config/site";
 import { getPublished, byDateDesc, formatDate, isoDate } from "~/lib/content";
+import { withBase } from "~/lib/url";
 
 const posts = (await getPublished("posts")).sort(byDateDesc);
 const years = [...new Set(posts.map((p) => p.data.date.getUTCFullYear()))];
@@ -21,7 +22,7 @@ const years = [...new Set(posts.map((p) => p.data.date.getUTCFullYear()))];
                 .map((post) => (
                   <li>
                     <h3>
-                      <a href={`/posts/${post.id}`}>{post.data.title}</a>
+                      <a href={withBase(`/posts/${post.id}`)}>{post.data.title}</a>
                     </h3>
                     <p class="entry-meta">
                       <time datetime={isoDate(post.data.date)}>

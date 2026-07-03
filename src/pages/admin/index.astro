@@ -1,5 +1,6 @@
 ---
 import { SITE } from "~/config/site";
+import { withBase } from "~/lib/url";
 import "~/styles/global.css";
 import "~/admin/admin.css";
 ---
@@ -11,7 +12,7 @@ import "~/admin/admin.css";
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Admin — {SITE.title}</title>
     <meta name="robots" content="noindex, nofollow" />
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href={withBase("/favicon.svg")} type="image/svg+xml" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Admin" />
   </head>

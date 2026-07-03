@@ -20,6 +20,7 @@ import { parseDocument, stringifyDocument, type Frontmatter } from "../lib/front
 import { enableSmartPaste, insertAtCursor } from "./paste";
 import { postToMastodon, postToBluesky } from "./crosspost";
 import { slugify } from "../lib/slug";
+import { withBase } from "../lib/url";
 import { SITE } from "../config/site";
 import { el, toast, busy } from "./ui";
 
@@ -93,7 +94,7 @@ function shell(title: string, back: string | null, ...content: (Node | string)[]
         ? el("a", { class: "admin-back", href: back, "aria-label": "Back" }, "‹ Back")
         : el("span", {}),
       el("h1", {}, title),
-      el("a", { class: "admin-back", href: "/", "aria-label": "View site" }, "View site"),
+      el("a", { class: "admin-back", href: withBase("/"), "aria-label": "View site" }, "View site"),
     ),
     el("div", { class: "admin-content" }, ...content),
   );
@@ -511,16 +512,17 @@ async function editorView(key: string, filename: string | null): Promise<void> {
   }
 
   const publicUrl = filename ? entryRoute(def, filename) : null;
+  const publicHref = publicUrl ? withBase(publicUrl) : null;
   renderView(
     shell(
       isNew ? `New ${def.labelSingular}` : `Edit ${def.labelSingular}`,
       `#/list/${def.key}`,
-      publicUrl
+      publicHref
         ? el(
             "p",
             { class: "admin-help" },
             "Public URL: ",
-            el("a", { href: publicUrl, rel: "noopener" }, publicUrl),
+            el("a", { href: publicHref, rel: "noopener" }, publicHref),
           )
         : "",
       form,
@@ -713,7 +715,7 @@ function shareSection(
 ): HTMLElement {
   const integrations = getIntegrations();
   const route = entryRoute(def, filename);
-  const url = route ? new URL(route, SITE.url).href : SITE.url;
+  const url = route ? new URL(withBase(route), SITE.url).href : SITE.url;
 
   const statusText = (): string => {
     const title = String(data.title ?? "").trim();

@@ -4,6 +4,7 @@ import Comments from "~/components/Comments.astro";
 import NewsletterSignup from "~/components/NewsletterSignup.astro";
 import { SITE } from "~/config/site";
 import { getPublished, formatDate, isoDate } from "~/lib/content";
+import { withBase } from "~/lib/url";
 import { render } from "astro:content";
 
 export async function getStaticPaths() {
@@ -52,7 +53,7 @@ const { Content } = await render(post);
     {
       post.data.cover && (
         <p>
-          <img src={post.data.cover} alt={post.data.coverAlt ?? ""} loading="eager" />
+          <img src={withBase(post.data.cover)} alt={post.data.coverAlt ?? ""} loading="eager" />
         </p>
       )
     }

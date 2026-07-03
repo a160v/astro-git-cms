@@ -4,6 +4,11 @@
 # repository's Actions tab. The Brevo API key lives here, in CI secrets —
 # it is never exposed to the browser.
 #
+# NOTE: Codeberg does not host Actions runners, so this workflow only runs if
+# you attach your own Forgejo runner (label `docker`) to the repository. With
+# no runner it will sit in "waiting" — see the README. You can also send a
+# newsletter from your machine instead: `bun run newsletter <post-slug>`.
+#
 # Required repository secrets:
 #   BREVO_API_KEY       Brevo API v3 key (Brevo → Settings → SMTP & API)
 #   BREVO_LIST_IDS      Comma-separated Brevo contact list IDs, e.g. "3"

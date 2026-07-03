@@ -29,8 +29,8 @@ minimalist, Apple-inspired UI and accessibility as a first-class concern.
   form endpoint, and a "Send as newsletter" button that emails a post to your
   subscribers through CI (the API key never touches the browser).
 - **Analytics** (optional) — GoatCounter, privacy-friendly and cookie-free.
-- **Deploys to Codeberg Pages** (or any Forgejo instance) with the included
-  workflow.
+- **Deploys to Codeberg Pages** (or any Forgejo instance) with a one-command
+  `bun run deploy` — no CI runner required.
 
 ## Quick start
 
@@ -46,14 +46,44 @@ navigation, and every feature toggle live there.
 
 ## Deploying to Codeberg Pages
 
-1. Push this repository to Codeberg (or any Forgejo instance).
-2. Enable **Actions** for the repository (Settings → Units).
-3. Set `url` in `src/config/site.ts` to your Pages URL
-   (e.g. `https://<user>.codeberg.page` or a custom domain).
-4. Push to `main`. The workflow in `.forgejo/workflows/deploy.yml` builds the
-   site and force-pushes `dist/` to the `pages` branch, which Codeberg Pages
-   serves. If the default Actions token can't push, add a `DEPLOY_TOKEN`
-   secret containing a token with repository write access.
+> **Codeberg does not host Actions runners.** Their Forgejo Actions only run if
+> you attach your own runner, otherwise jobs sit forever in "waiting… no
+> matching online runner with label: docker". So the site is built and
+> published with a one-command script instead of CI — no runner needed.
+
+Codeberg Pages serves whatever is on a branch named `pages`. Decide **where**
+your site lives, because it determines the `base` path:
+
+- **Domain root** — put the build in a repo literally named `pages`
+  (served at `https://<user>.codeberg.page/`). Set `basePath: "/"`.
+- **Sub-path** — serve from another repo's `pages` branch
+  (served at `https://<user>.codeberg.page/<repo>/`). Set
+  `basePath: "/<repo>/"` so every link, asset and image resolves correctly.
+
+Then:
+
+1. In `src/config/site.ts` set `url` to your origin
+   (`https://<user>.codeberg.page`, no sub-path) and `basePath` as above.
+2. Deploy:
+   ```sh
+   bun run deploy
+   ```
+   This builds and force-pushes `dist/` to the `pages` branch of your `origin`.
+   To publish to a different repo (e.g. the root-hosting `pages` repo) or
+   override the base for one build:
+   ```sh
+   DEPLOY_REMOTE=https://codeberg.org/<user>/pages.git SITE_BASE=/ bun run deploy
+   ```
+3. Enable Pages if prompted, and your site is live in a minute or two.
+
+Prefer automated deploys? If you attach your **own** Forgejo runner (label
+`docker`) to the repo, you can have CI run `bun run deploy` on push — but for a
+personal site the one-command deploy is usually less to maintain.
+
+> **Sub-path note:** all of the theme's own links, feeds, and images respect
+> `base`, and Markdown-body links/images (`/uploads/…`) are rewritten at build
+> time. Root hosting (`basePath: "/"`) avoids the sub-path entirely and is the
+> simplest option if you don't need this repo's name in the URL.
 
 ## Using the admin
 
@@ -148,6 +178,7 @@ src/
   admin/                ← the /admin single-page app
   lib/                  ← shared frontmatter/slug utilities
 scripts/send-newsletter.ts   ← Brevo campaign sender (CI)
-.forgejo/workflows/     ← deploy + newsletter workflows
+scripts/deploy.sh            ← build + publish to the `pages` branch
+.forgejo/workflows/     ← newsletter workflow (needs a self-hosted runner)
 tests/                  ← bun test
 ```
