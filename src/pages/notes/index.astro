@@ -1,0 +1,37 @@
+---
+import Base from "~/layouts/Base.astro";
+import { SITE } from "~/config/site";
+import { getPublished, byDateDesc, formatDate, isoDate } from "~/lib/content";
+import { render } from "astro:content";
+
+const notes = (await getPublished("notes")).sort(byDateDesc);
+const rendered = await Promise.all(notes.map(async (note) => ({ note, r: await render(note) })));
+---
+
+<Base title="Notes" description={`Short notes from ${SITE.title} — a microblog.`}>
+  <div class="wrap">
+    <h1>Notes</h1>
+    <ul class="entry-list">
+      {
+        rendered.map(({ note, r }) => {
+          const Content = r.Content;
+          return (
+            <li class="note-card">
+              <div class="prose">
+                <Content />
+              </div>
+              <p class="entry-meta" style="margin-bottom: 0;">
+                <a href={`/notes/${note.id}`}>
+                  <time datetime={isoDate(note.data.date)}>
+                    {formatDate(note.data.date, SITE.locale)}
+                  </time>
+                </a>
+                {note.data.draft && " · draft"}
+              </p>
+            </li>
+          );
+        })
+      }
+    </ul>
+  </div>
+</Base>

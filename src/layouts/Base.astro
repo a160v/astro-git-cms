@@ -1,0 +1,120 @@
+---
+import { SITE } from "~/config/site";
+import Analytics from "~/components/Analytics.astro";
+import "~/styles/global.css";
+
+interface Props {
+  title?: string;
+  description?: string;
+  /** og:type — "article" for posts, "website" otherwise. */
+  type?: "website" | "article";
+  /** Absolute or site-relative image for social cards. */
+  image?: string;
+  /** Set false on utility pages (admin, 404). */
+  indexable?: boolean;
+}
+
+const {
+  title,
+  description = SITE.description,
+  type = "website",
+  image,
+  indexable = true,
+} = Astro.props;
+
+const pageTitle = title ? `${title} — ${SITE.title}` : SITE.title;
+const canonical = new URL(Astro.url.pathname, SITE.url).href;
+const socialImage = image ? new URL(image, SITE.url).href : undefined;
+const currentPath = Astro.url.pathname.replace(/\/$/, "") || "/";
+---
+
+<!doctype html>
+<html lang={SITE.locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={description} />
+    <meta name="generator" content={Astro.generator} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="alternate" type="application/rss+xml" title={`${SITE.title} — Posts`} href="/rss.xml" />
+    <link rel="alternate" type="application/rss+xml" title={`${SITE.title} — Notes`} href="/notes/rss.xml" />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+    {!indexable && <meta name="robots" content="noindex" />}
+
+    <meta property="og:title" content={title ?? SITE.title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content={type} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:site_name" content={SITE.title} />
+    {socialImage && <meta property="og:image" content={socialImage} />}
+    <meta name="twitter:card" content={socialImage ? "summary_large_image" : "summary"} />
+    {SITE.fediverse.creator && <meta name="fediverse:creator" content={SITE.fediverse.creator} />}
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header">
+      <div class="wrap">
+        <a class="site-title" href="/">{SITE.title}</a>
+        <nav class="site-nav" aria-label="Main">
+          <ul>
+            {
+              SITE.nav.map((item) => (
+                <li>
+                  <a
+                    href={item.href}
+                    aria-current={
+                      currentPath === item.href || currentPath.startsWith(item.href + "/")
+                        ? "page"
+                        : undefined
+                    }
+                  >
+                    {item.label}
+                  </a>
+                </li>
+              ))
+            }
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main">
+      <slot />
+    </main>
+
+    <footer class="site-footer">
+      <div class="wrap">
+        <p>© {new Date().getFullYear()} {SITE.author}</p>
+        <p>
+          <a href="/rss.xml">RSS</a>
+          {
+            SITE.fediverse.creator && (
+              <>
+                {" · "}
+                <a
+                  rel="me"
+                  href={`https://${SITE.fediverse.creator.split("@")[2] ?? ""}/@${SITE.fediverse.creator.split("@")[1] ?? ""}`}
+                >
+                  Fediverse
+                </a>
+              </>
+            )
+          }
+          {
+            SITE.bluesky.handle && (
+              <>
+                {" · "}
+                <a rel="me" href={`https://bsky.app/profile/${SITE.bluesky.handle}`}>Bluesky</a>
+              </>
+            )
+          }
+        </p>
+      </div>
+    </footer>
+
+    <Analytics />
+  </body>
+</html>

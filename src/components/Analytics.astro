@@ -1,0 +1,22 @@
+---
+/**
+ * Privacy-friendly analytics via GoatCounter (no cookies, no consent banner needed).
+ * Renders nothing unless enabled in src/config/site.ts.
+ * Your dashboard lives at https://<code>.goatcounter.com.
+ */
+import { SITE } from "~/config/site";
+
+const enabled = SITE.features.analytics && SITE.analytics.goatcounterCode;
+const endpoint = `https://${SITE.analytics.goatcounterCode}.goatcounter.com/count`;
+---
+
+{
+  enabled && (
+    <script
+      is:inline
+      data-goatcounter={endpoint}
+      async
+      src="https://gc.zgo.at/count.js"
+    />
+  )
+}

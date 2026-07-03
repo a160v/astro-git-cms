@@ -1,0 +1,67 @@
+---
+import Base from "~/layouts/Base.astro";
+import Comments from "~/components/Comments.astro";
+import NewsletterSignup from "~/components/NewsletterSignup.astro";
+import { SITE } from "~/config/site";
+import { getPublished, formatDate, isoDate } from "~/lib/content";
+import { render } from "astro:content";
+
+export async function getStaticPaths() {
+  const posts = await getPublished("posts");
+  return posts.map((post) => ({ params: { id: post.id }, props: { post } }));
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+---
+
+<Base
+  title={post.data.title}
+  description={post.data.description}
+  type="article"
+  image={post.data.cover}
+>
+  <article class="wrap">
+    <header>
+      <h1>{post.data.title}</h1>
+      <p class="entry-meta">
+        <time datetime={isoDate(post.data.date)}>{formatDate(post.data.date, SITE.locale)}</time>
+        {
+          post.data.updated && (
+            <>
+              {" · updated "}
+              <time datetime={isoDate(post.data.updated)}>
+                {formatDate(post.data.updated, SITE.locale)}
+              </time>
+            </>
+          )
+        }
+        {post.data.draft && " · draft (not in production builds)"}
+      </p>
+      {
+        post.data.tags.length > 0 && (
+          <ul class="tag-list" aria-label="Tags">
+            {post.data.tags.map((tag) => (
+              <li>{tag}</li>
+            ))}
+          </ul>
+        )
+      }
+    </header>
+
+    {
+      post.data.cover && (
+        <p>
+          <img src={post.data.cover} alt={post.data.coverAlt ?? ""} loading="eager" />
+        </p>
+      )
+    }
+
+    <div class="prose">
+      <Content />
+    </div>
+
+    <Comments mastodon={post.data.mastodon} bluesky={post.data.bluesky} />
+    <NewsletterSignup />
+  </article>
+</Base>

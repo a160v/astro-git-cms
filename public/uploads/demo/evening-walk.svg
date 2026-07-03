@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" role="img" aria-label="Crescent moon over dark purple hills">
+  <rect width="600" height="600" fill="#1e1b4b"/>
+  <circle cx="380" cy="180" r="80" fill="#fef3c7"/>
+  <circle cx="410" cy="160" r="70" fill="#1e1b4b"/>
+  <circle cx="140" cy="120" r="3" fill="#fef3c7"/>
+  <circle cx="220" cy="80" r="2" fill="#fef3c7"/>
+  <circle cx="90" cy="240" r="2" fill="#fef3c7"/>
+  <path d="M0 440 Q180 340 360 450 T600 430 V600 H0 Z" fill="#4c1d95"/>
+  <path d="M0 500 Q240 430 480 520 T600 500 V600 H0 Z" fill="#6d28d9"/>
+</svg>

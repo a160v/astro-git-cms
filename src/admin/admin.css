@@ -1,0 +1,308 @@
+/* Admin app styles — builds on the tokens in global.css.
+   Designed phone-first: single column, large touch targets, sticky top bar. */
+
+.admin-view {
+  max-width: 46rem;
+  margin-inline: auto;
+  padding: 0 var(--space) 4rem;
+}
+
+.admin-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.5rem;
+}
+
+.admin-bar h1 {
+  font-size: 1.05rem;
+  margin: 0;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-bar h1:focus {
+  outline: none;
+}
+
+.admin-back {
+  justify-self: start;
+  text-decoration: none;
+  font-weight: 600;
+  padding: 0.5rem 0.25rem;
+}
+
+.admin-bar > a:last-child {
+  justify-self: end;
+}
+
+.admin-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.admin-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(13rem, 100%), 1fr));
+  gap: 0.75rem;
+}
+
+.admin-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+  color: var(--fg);
+  text-decoration: none;
+  min-height: 5.5rem;
+}
+
+.admin-card:hover {
+  border-color: var(--accent);
+}
+
+.admin-help {
+  display: block;
+  color: var(--fg-muted);
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+.admin-form .admin-field,
+.admin-editor .admin-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0 0 1.1rem;
+}
+
+.admin-field input,
+.admin-field textarea {
+  width: 100%;
+}
+
+.admin-editor textarea#field-body {
+  width: 100%;
+  min-height: 16rem;
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.admin-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+  position: sticky;
+  top: 3.6rem;
+  z-index: 5;
+  background: var(--bg);
+  padding: 0.35rem 0;
+}
+
+.admin-tool {
+  min-height: 40px;
+  padding: 0.3rem 0.8rem;
+  font-size: 0.85rem;
+}
+
+.admin-preview {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  padding: 1rem;
+  min-height: 16rem;
+}
+
+.admin-draft {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  background: var(--bg-elevated);
+}
+
+.admin-draft input[type="checkbox"] {
+  appearance: none;
+  width: 51px;
+  height: 31px;
+  min-height: 31px;
+  border-radius: 999px;
+  background: var(--border);
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin: 0;
+}
+
+.admin-draft input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+  transition: transform 0.2s;
+}
+
+.admin-draft input[type="checkbox"]:checked {
+  background: #f0a500;
+}
+
+.admin-draft input[type="checkbox"]:checked::after {
+  transform: translateX(20px);
+}
+
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.btn-danger {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid currentColor;
+}
+
+.admin-advanced {
+  margin-bottom: 1.1rem;
+}
+
+.admin-advanced summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0.5rem 0;
+}
+
+.admin-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.admin-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-decoration: none;
+  color: var(--fg);
+  background: var(--bg-elevated);
+}
+
+.admin-row:hover {
+  border-color: var(--accent);
+}
+
+.admin-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.admin-row-main strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-pill {
+  flex-shrink: 0;
+  background: #f0a500;
+  color: #201500;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.admin-share {
+  margin-top: 1.5rem;
+}
+
+.admin-share h2 {
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+}
+
+.admin-media-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(11rem, 100%), 1fr));
+  gap: 0.75rem;
+}
+
+.admin-media-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.6rem;
+  background: var(--bg-elevated);
+}
+
+.admin-media-item img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: var(--radius-small);
+  background: var(--bg);
+}
+
+.admin-toast {
+  position: fixed;
+  left: 50%;
+  bottom: max(1.25rem, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 100;
+  max-width: min(92vw, 30rem);
+  padding: 0.8rem 1.2rem;
+  border-radius: var(--radius);
+  background: var(--fg);
+  color: var(--bg);
+  font-weight: 500;
+  font-size: 0.95rem;
+  box-shadow: var(--shadow);
+  overflow-wrap: anywhere;
+}
+
+.admin-toast-error {
+  background: var(--danger);
+  color: #fff;
+}

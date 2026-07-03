@@ -1,0 +1,32 @@
+---
+import Base from "~/layouts/Base.astro";
+import Comments from "~/components/Comments.astro";
+import { SITE } from "~/config/site";
+import { getPublished, formatDate, isoDate } from "~/lib/content";
+import { render } from "astro:content";
+
+export async function getStaticPaths() {
+  const notes = await getPublished("notes");
+  return notes.map((note) => ({ params: { id: note.id }, props: { note } }));
+}
+
+const { note } = Astro.props;
+const { Content } = await render(note);
+const plain = note.body?.replace(/[#*_>`\[\]]/g, "").trim().slice(0, 140) ?? "A note.";
+---
+
+<Base title={`Note from ${formatDate(note.data.date, SITE.locale)}`} description={plain} type="article">
+  <article class="wrap">
+    <header>
+      <h1 class="visually-hidden">Note from {formatDate(note.data.date, SITE.locale)}</h1>
+      <p class="entry-meta">
+        <time datetime={isoDate(note.data.date)}>{formatDate(note.data.date, SITE.locale)}</time>
+        {note.data.draft && " · draft (not in production builds)"}
+      </p>
+    </header>
+    <div class="prose">
+      <Content />
+    </div>
+    <Comments mastodon={note.data.mastodon} bluesky={note.data.bluesky} />
+  </article>
+</Base>

@@ -1,0 +1,209 @@
+---
+/**
+ * Comments from the fediverse (Mastodon) and the atmosphere (Bluesky).
+ *
+ * How it works: when you cross-post an entry from the admin, the URL of the
+ * announcement post is stored in the entry's frontmatter (`mastodon:` /
+ * `bluesky:`). This component then fetches replies to those announcements
+ * in the reader's browser and shows them as comments. To comment, readers
+ * reply from their own fediverse/Bluesky account — no accounts or moderation
+ * queue to run on your side, and nothing conflicts with other Astro plugins.
+ *
+ * All remote content is rendered as plain text (never as HTML), so a
+ * malicious reply cannot inject markup into your page.
+ */
+import { SITE } from "~/config/site";
+
+interface Props {
+  mastodon?: string | undefined;
+  bluesky?: string | undefined;
+}
+
+const { mastodon, bluesky } = Astro.props;
+
+const showMastodon = SITE.features.fediverseComments && !!mastodon;
+const showBluesky = SITE.features.atprotoComments && !!bluesky;
+const show = showMastodon || showBluesky;
+---
+
+{
+  show && (
+    <section class="comments" aria-labelledby="comments-title">
+      <h2 id="comments-title">Comments</h2>
+      <p class="muted">
+        Reply from your own account — replies show up here as comments.
+      </p>
+      <div class="comment-actions">
+        {showMastodon && (
+          <a class="btn btn-secondary" href={mastodon} rel="noopener">
+            Reply on Mastodon
+          </a>
+        )}
+        {showBluesky && (
+          <a class="btn btn-secondary" href={bluesky} rel="noopener">
+            Reply on Bluesky
+          </a>
+        )}
+      </div>
+      <div
+        id="comments-thread"
+        data-mastodon={showMastodon ? mastodon : undefined}
+        data-bluesky={showBluesky ? bluesky : undefined}
+        aria-live="polite"
+      >
+        <p class="comments-status">Loading comments…</p>
+      </div>
+    </section>
+  )
+}
+
+<script>
+  interface Comment {
+    author: string;
+    handle: string;
+    avatar: string | null;
+    url: string;
+    date: string;
+    text: string;
+    source: "Mastodon" | "Bluesky";
+  }
+
+  const container = document.getElementById("comments-thread");
+
+  function htmlToText(html: string): string {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    doc.querySelectorAll("br").forEach((br) => br.replaceWith("\n"));
+    doc.querySelectorAll("p").forEach((p) => p.append("\n\n"));
+    return (doc.body.textContent ?? "").trim();
+  }
+
+  async function fetchMastodon(statusUrl: string): Promise<Comment[]> {
+    const match = /^(https:\/\/[^/]+)\/(?:@[^/]+|users\/[^/]+\/statuses)\/(\d+)/.exec(statusUrl);
+    if (!match) return [];
+    const [, origin, id] = match;
+    const res = await fetch(`${origin}/api/v1/statuses/${id}/context`);
+    if (!res.ok) throw new Error(`Mastodon ${res.status}`);
+    const data = (await res.json()) as { descendants: any[] };
+    return data.descendants.map((s) => ({
+      author: s.account.display_name || s.account.username,
+      handle: `@${s.account.acct}`,
+      avatar: s.account.avatar_static ?? null,
+      url: s.url,
+      date: s.created_at,
+      text: htmlToText(s.content),
+      source: "Mastodon",
+    }));
+  }
+
+  async function fetchBluesky(postUrl: string): Promise<Comment[]> {
+    const match = /bsky\.app\/profile\/([^/]+)\/post\/([^/?#]+)/.exec(postUrl);
+    if (!match) return [];
+    let [, actor, rkey] = match as unknown as [string, string, string];
+    if (!actor.startsWith("did:")) {
+      const res = await fetch(
+        `https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(actor)}`,
+      );
+      if (!res.ok) throw new Error(`Bluesky ${res.status}`);
+      actor = ((await res.json()) as { did: string }).did;
+    }
+    const uri = `at://${actor}/app.bsky.feed.post/${rkey}`;
+    const res = await fetch(
+      `https://public.api.bsky.app/xrpc/app.bsky.feed.getPostThread?uri=${encodeURIComponent(uri)}&depth=10`,
+    );
+    if (!res.ok) throw new Error(`Bluesky ${res.status}`);
+    const data = (await res.json()) as { thread: any };
+    const out: Comment[] = [];
+    const walk = (replies: any[] | undefined) => {
+      for (const node of replies ?? []) {
+        const post = node?.post;
+        if (post?.record?.text !== undefined) {
+          const rkeyOf = post.uri.split("/").pop();
+          out.push({
+            author: post.author.displayName || post.author.handle,
+            handle: `@${post.author.handle}`,
+            avatar: post.author.avatar ?? null,
+            url: `https://bsky.app/profile/${post.author.handle}/post/${rkeyOf}`,
+            date: post.record.createdAt ?? post.indexedAt,
+            text: post.record.text,
+            source: "Bluesky",
+          });
+        }
+        walk(node?.replies);
+      }
+    };
+    walk(data.thread?.replies);
+    return out;
+  }
+
+  function render(comments: Comment[]) {
+    if (!container) return;
+    container.textContent = "";
+    if (comments.length === 0) {
+      const p = document.createElement("p");
+      p.className = "comments-status";
+      p.textContent = "No comments yet. Be the first to reply!";
+      container.append(p);
+      return;
+    }
+    comments.sort((a, b) => new Date(a.date).valueOf() - new Date(b.date).valueOf());
+    for (const c of comments) {
+      const article = document.createElement("article");
+      article.className = "comment";
+
+      const avatar = document.createElement("img");
+      avatar.className = "avatar";
+      avatar.alt = "";
+      avatar.loading = "lazy";
+      avatar.width = 44;
+      avatar.height = 44;
+      if (c.avatar) avatar.src = c.avatar;
+
+      const content = document.createElement("div");
+      const head = document.createElement("p");
+      head.style.margin = "0";
+      const author = document.createElement("a");
+      author.className = "comment-author";
+      author.href = c.url;
+      author.rel = "noopener nofollow";
+      author.textContent = c.author;
+      const handle = document.createElement("span");
+      handle.className = "comment-handle";
+      handle.textContent = ` ${c.handle} · ${c.source} · `;
+      const date = document.createElement("time");
+      date.className = "comment-date";
+      date.dateTime = c.date;
+      date.textContent = new Date(c.date).toLocaleDateString();
+      head.append(author, handle, date);
+
+      const body = document.createElement("p");
+      body.className = "comment-body";
+      body.textContent = c.text;
+
+      content.append(head, body);
+      article.append(avatar, content);
+      container.append(article);
+    }
+  }
+
+  async function load() {
+    if (!container) return;
+    const sources: Promise<Comment[]>[] = [];
+    const mastodonUrl = container.dataset.mastodon;
+    const blueskyUrl = container.dataset.bluesky;
+    if (mastodonUrl) sources.push(fetchMastodon(mastodonUrl));
+    if (blueskyUrl) sources.push(fetchBluesky(blueskyUrl));
+    const results = await Promise.allSettled(sources);
+    const ok = results.filter((r) => r.status === "fulfilled") as PromiseFulfilledResult<Comment[]>[];
+    if (ok.length === 0) {
+      container.textContent = "";
+      const p = document.createElement("p");
+      p.className = "comments-status";
+      p.textContent = "Comments could not be loaded right now.";
+      container.append(p);
+      return;
+    }
+    render(ok.flatMap((r) => r.value));
+  }
+
+  load();
+</script>

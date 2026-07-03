@@ -1,0 +1,77 @@
+---
+import Base from "~/layouts/Base.astro";
+import NewsletterSignup from "~/components/NewsletterSignup.astro";
+import { SITE } from "~/config/site";
+import { getPublished, byDateDesc, formatDate, isoDate } from "~/lib/content";
+import { render } from "astro:content";
+
+const posts = (await getPublished("posts")).sort(byDateDesc).slice(0, 5);
+const notes = (await getPublished("notes")).sort(byDateDesc).slice(0, 3);
+const renderedNotes = await Promise.all(
+  notes.map(async (note) => ({ note, rendered: await render(note) })),
+);
+---
+
+<Base>
+  <div class="wrap stack-lg">
+    <header>
+      <h1>{SITE.title}</h1>
+      <p class="muted" style="font-size: 1.15rem; max-width: 36rem;">{SITE.description}</p>
+    </header>
+
+    <section aria-labelledby="latest-posts">
+      <h2 id="latest-posts">Latest posts</h2>
+      <ul class="entry-list">
+        {
+          posts.map((post) => (
+            <li>
+              <h3>
+                <a href={`/posts/${post.id}`}>{post.data.title}</a>
+              </h3>
+              <p class="entry-meta">
+                <time datetime={isoDate(post.data.date)}>
+                  {formatDate(post.data.date, SITE.locale)}
+                </time>
+                {post.data.draft && " · draft"}
+              </p>
+              {post.data.description && <p>{post.data.description}</p>}
+            </li>
+          ))
+        }
+      </ul>
+      <p><a href="/posts">All posts →</a></p>
+    </section>
+
+    {
+      renderedNotes.length > 0 && (
+        <section aria-labelledby="latest-notes">
+          <h2 id="latest-notes">Recent notes</h2>
+          <ul class="entry-list">
+            {renderedNotes.map(({ note, rendered }) => {
+              const Content = rendered.Content;
+              return (
+                <li class="note-card">
+                  <div class="prose">
+                    <Content />
+                  </div>
+                  <p class="entry-meta" style="margin-bottom: 0;">
+                    <a href={`/notes/${note.id}`}>
+                      <time datetime={isoDate(note.data.date)}>
+                        {formatDate(note.data.date, SITE.locale)}
+                      </time>
+                    </a>
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+          <p>
+            <a href="/notes">All notes →</a>
+          </p>
+        </section>
+      )
+    }
+
+    <NewsletterSignup />
+  </div>
+</Base>

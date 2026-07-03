@@ -1,0 +1,37 @@
+---
+/**
+ * Newsletter signup, powered by Brevo.
+ * The form posts straight to your Brevo form endpoint, so subscriber
+ * management, double opt-in and unsubscribe are all handled by Brevo —
+ * this component deliberately does nothing that would overlap with it.
+ * Renders nothing unless enabled + configured in src/config/site.ts.
+ */
+import { SITE } from "~/config/site";
+
+const enabled = SITE.features.newsletter && SITE.newsletter.brevoFormAction;
+---
+
+{
+  enabled && (
+    <aside class="newsletter" aria-labelledby="newsletter-title">
+      <h2 id="newsletter-title">Get new posts by email</h2>
+      <p class="muted">No spam, unsubscribe anytime.</p>
+      <form action={SITE.newsletter.brevoFormAction} method="post" target="_blank">
+        <label class="visually-hidden" for="newsletter-email">
+          Email address
+        </label>
+        <input
+          id="newsletter-email"
+          type="email"
+          name="EMAIL"
+          autocomplete="email"
+          required
+          placeholder="you@example.com"
+        />
+        <input type="hidden" name="email_address_check" value="" class="visually-hidden" />
+        <input type="hidden" name="locale" value={SITE.locale} />
+        <button class="btn" type="submit">Subscribe</button>
+      </form>
+    </aside>
+  )
+}
