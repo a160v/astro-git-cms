@@ -1,8 +1,12 @@
 /**
- * Minimal Forgejo API client — everything the admin needs to act as a CMS:
+ * Minimal git-forge API client — everything the admin needs to act as a CMS:
  * read/write/delete files (= content entries and images) and trigger
- * workflow dispatches (= send newsletters). Works with any Forgejo instance,
- * including Codeberg.
+ * workflow dispatches (= send newsletters).
+ *
+ * Supports two providers behind one interface:
+ *   - "github":  github.com (contents API, GitHub Actions)
+ *   - "forgejo": any Forgejo/Gitea instance, including codeberg.org
+ * The two APIs are nearly identical; the differences are confined to this file.
  */
 import type { Connection } from "./store";
 
@@ -19,26 +23,48 @@ export interface FileContent {
   sha: string;
 }
 
-export class ForgejoError extends Error {
+export class GitError extends Error {
   constructor(
     message: string,
     public status: number,
   ) {
     super(message);
-    this.name = "ForgejoError";
+    this.name = "GitError";
   }
 }
 
-export class Forgejo {
+export class GitClient {
   constructor(private conn: Connection) {}
 
   get branch(): string {
     return this.conn.branch;
   }
 
+  /** Identifies the connected repo+branch, e.g. for cache invalidation. */
+  get signature(): string {
+    const { baseUrl, owner, repo, branch } = this.conn;
+    return `${baseUrl}/${owner}/${repo}#${branch}`;
+  }
+
+  private get apiBase(): string {
+    if (this.conn.provider === "github") return "https://api.github.com";
+    return `${this.conn.baseUrl.replace(/\/+$/, "")}/api/v1`;
+  }
+
+  private headers(extra?: Record<string, string>): Record<string, string> {
+    const auth =
+      this.conn.provider === "github" ? `Bearer ${this.conn.token}` : `token ${this.conn.token}`;
+    return {
+      Authorization: auth,
+      ...(this.conn.provider === "github"
+        ? { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" }
+        : {}),
+      ...extra,
+    };
+  }
+
   private url(path: string, query?: Record<string, string>): string {
-    const base = this.conn.baseUrl.replace(/\/+$/, "");
-    const u = new URL(`${base}/api/v1${path}`);
+    const u = new URL(`${this.apiBase}${path}`);
     for (const [k, v] of Object.entries(query ?? {})) u.searchParams.set(k, v);
     return u.href;
   }
@@ -50,10 +76,7 @@ export class Forgejo {
   private async request<T>(method: string, path: string, query?: Record<string, string>, body?: unknown): Promise<T> {
     const res = await fetch(this.url(path, query), {
       method,
-      headers: {
-        Authorization: `token ${this.conn.token}`,
-        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
-      },
+      headers: this.headers(body !== undefined ? { "Content-Type": "application/json" } : {}),
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
     if (!res.ok) {
@@ -63,7 +86,7 @@ export class Forgejo {
       } catch {
         /* not json */
       }
-      throw new ForgejoError(detail || `${res.status} ${res.statusText}`, res.status);
+      throw new GitError(detail || `${res.status} ${res.statusText}`, res.status);
     }
     if (res.status === 204) return undefined as T;
     return (await res.json()) as T;
@@ -81,7 +104,7 @@ export class Forgejo {
       });
       return Array.isArray(entries) ? entries : [];
     } catch (err) {
-      if (err instanceof ForgejoError && err.status === 404) return [];
+      if (err instanceof GitError && err.status === 404) return [];
       throw err;
     }
   }
@@ -92,17 +115,31 @@ export class Forgejo {
       this.repoPath(`/contents/${encodePath(path)}`),
       { ref: this.conn.branch },
     );
+    // Large files come back without inline content; fall back to a raw fetch.
+    if (data.encoding !== "base64" || (data.content === "" && data.sha)) {
+      const res = await this.fetchRaw(path);
+      return { text: await res.text(), sha: data.sha };
+    }
     return { text: fromBase64(data.content), sha: data.sha };
   }
 
   /** Fetch a binary file (image thumbnails in the media library) as an object URL. */
   async getRawObjectUrl(path: string): Promise<string> {
-    const res = await fetch(
-      this.url(this.repoPath(`/raw/${encodePath(path)}`), { ref: this.conn.branch }),
-      { headers: { Authorization: `token ${this.conn.token}` } },
-    );
-    if (!res.ok) throw new ForgejoError(`Could not load ${path}`, res.status);
+    const res = await this.fetchRaw(path);
     return URL.createObjectURL(await res.blob());
+  }
+
+  private async fetchRaw(path: string): Promise<Response> {
+    const res =
+      this.conn.provider === "github"
+        ? await fetch(this.url(this.repoPath(`/contents/${encodePath(path)}`), { ref: this.conn.branch }), {
+            headers: this.headers({ Accept: "application/vnd.github.raw+json" }),
+          })
+        : await fetch(this.url(this.repoPath(`/raw/${encodePath(path)}`), { ref: this.conn.branch }), {
+            headers: this.headers(),
+          });
+    if (!res.ok) throw new GitError(`Could not load ${path}`, res.status);
+    return res;
   }
 
   /** Create or update a text file. Pass `sha` when updating an existing file. */
@@ -118,8 +155,10 @@ export class Forgejo {
       branch: this.conn.branch,
       ...(sha ? { sha } : {}),
     };
+    // GitHub uses PUT for both create and update; Forgejo uses POST to create.
+    const method = this.conn.provider === "github" || sha ? "PUT" : "POST";
     const data = await this.request<{ content: { sha: string } }>(
-      sha ? "PUT" : "POST",
+      method,
       this.repoPath(`/contents/${encodePath(path)}`),
       undefined,
       body,

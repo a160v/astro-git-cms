@@ -1,30 +1,51 @@
 /**
- * The admin app: a small single-page application served at /admin.
+ * The admin app: a small single-page application.
  *
  * It has no backend of its own — it reads and writes content by talking to
- * your Forgejo/Codeberg repository through its API, from your browser.
- * Publishing a change means making a commit; the CI pipeline rebuilds the
- * static site. Works comfortably on a phone.
+ * your GitHub or Forgejo/Codeberg repository through its API, from your
+ * browser. Publishing a change means making a commit; your deploy pipeline
+ * rebuilds the static site. Works comfortably on a phone.
+ *
+ * It runs in two ways, from the same code:
+ *   - bundled into this repo's theme at /admin, or
+ *   - standalone ("headless") — built with `bun run build:admin` and hosted
+ *     anywhere, managing any repository that it is pointed at. A
+ *     `cms.config.json` in the target repo describes that site's content
+ *     model (see schema.ts).
  */
 import { marked } from "marked";
-import { COLLECTIONS, collectionByKey, entryRoute, type CollectionDef, type Field } from "./schema";
-import { Forgejo, ForgejoError, bytesToBase64, type DirEntry } from "./forgejo";
+import {
+  defaultConfig,
+  entryRoute,
+  dateFieldOf,
+  renderFilename,
+  type CmsConfig,
+  type CollectionDef,
+  type Field,
+} from "./schema";
+import { GitClient, GitError, bytesToBase64, type DirEntry } from "./git";
+import { loadCmsConfig, resetCmsConfig, cmsConfigSource, CMS_CONFIG_FILE } from "./config";
 import {
   getConnection,
   setConnection,
   getIntegrations,
   setIntegrations,
+  getSiteSettings,
+  setSiteSettings,
+  injectedSite,
   type Connection,
+  type Provider,
 } from "./store";
 import { parseDocument, stringifyDocument, type Frontmatter } from "../lib/frontmatter";
 import { enableSmartPaste, insertAtCursor } from "./paste";
 import { postToMastodon, postToBluesky } from "./crosspost";
 import { slugify } from "../lib/slug";
-import { withBase } from "../lib/url";
-import { SITE } from "../config/site";
 import { el, toast, busy } from "./ui";
 
 const app = document.getElementById("admin-app")!;
+
+/** The content model of the connected repo; replaced by its cms.config.json when present. */
+let cfg: CmsConfig = defaultConfig();
 
 /* ------------------------------------------------------------------------ */
 /* Router                                                                    */
@@ -39,6 +60,7 @@ async function route(): Promise<void> {
   }
   app.setAttribute("aria-busy", "true");
   try {
+    if (conn) cfg = await loadCmsConfig(client(), (message) => toast(message, "error"));
     switch (segments[0]) {
       case "connect":
         renderView(connectView());
@@ -75,8 +97,29 @@ function renderView(node: Node): void {
   (heading as HTMLElement | null)?.focus?.();
 }
 
-function forgejo(): Forgejo {
-  return new Forgejo(getConnection()!);
+function client(): GitClient {
+  return new GitClient(getConnection()!);
+}
+
+function collection(key: string): CollectionDef {
+  const def = cfg.collections.find((c) => c.key === key);
+  if (!def) throw new Error(`Unknown collection "${key}"`);
+  return def;
+}
+
+/** Join the site's base path and a site-absolute path, avoiding double slashes. */
+function joinPath(base: string, path: string): string {
+  const b = (base || "/").replace(/\/+$/, "");
+  return `${b}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
+/** Absolute URL of a page on the public site, for links and cross-posting. */
+function siteUrlFor(path = "/"): string | null {
+  const site = getSiteSettings();
+  if (site.url) return new URL(joinPath(site.basePath, path), site.url).href;
+  // Bundled into the site itself: relative links work without a configured URL.
+  if (injectedSite().basePath !== undefined) return joinPath(site.basePath, path);
+  return null;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -94,7 +137,9 @@ function shell(title: string, back: string | null, ...content: (Node | string)[]
         ? el("a", { class: "admin-back", href: back, "aria-label": "Back" }, "‹ Back")
         : el("span", {}),
       el("h1", {}, title),
-      el("a", { class: "admin-back", href: withBase("/"), "aria-label": "View site" }, "View site"),
+      siteUrlFor()
+        ? el("a", { class: "admin-back", href: siteUrlFor()!, "aria-label": "View site" }, "View site")
+        : el("span", {}),
     ),
     el("div", { class: "admin-content" }, ...content),
   );
@@ -102,7 +147,7 @@ function shell(title: string, back: string | null, ...content: (Node | string)[]
 
 function errorView(err: unknown): HTMLElement {
   const message = err instanceof Error ? err.message : String(err);
-  const isAuth = err instanceof ForgejoError && (err.status === 401 || err.status === 403);
+  const isAuth = err instanceof GitError && (err.status === 401 || err.status === 403);
   return shell(
     "Something went wrong",
     "#/",
@@ -117,25 +162,42 @@ function errorView(err: unknown): HTMLElement {
 /* Connect                                                                   */
 /* ------------------------------------------------------------------------ */
 
+const TOKEN_HELP: Record<Provider, string> = {
+  github:
+    "Create a fine-grained personal access token (github.com → Settings → Developer settings) scoped to just this repository, with read & write access to Contents. It is stored only in this browser.",
+  forgejo:
+    "Create one under Settings → Applications on your Forgejo instance, with read/write permission for repositories. It is stored only in this browser.",
+};
+
 function connectView(): HTMLElement {
   const existing = getConnection();
   const form = el("form", { class: "admin-form" });
 
-  const fields: { key: keyof Connection; label: string; value: string; type?: string; help?: string }[] = [
-    { key: "baseUrl", label: "Forgejo instance", value: existing?.baseUrl ?? "https://codeberg.org" },
+  const providerSelect = el("select", { id: "connect-provider" });
+  providerSelect.append(
+    el("option", { value: "github" }, "GitHub"),
+    el("option", { value: "forgejo" }, "Forgejo / Codeberg"),
+  );
+  providerSelect.value = existing?.provider ?? "github";
+  form.append(
+    el(
+      "p",
+      { class: "admin-field" },
+      el("label", { htmlFor: "connect-provider" }, "Where is your repository?"),
+      providerSelect,
+    ),
+  );
+
+  const fields: { key: Exclude<keyof Connection, "provider">; label: string; value: string; type?: string; help?: string }[] = [
+    { key: "baseUrl", label: "Instance", value: existing?.baseUrl ?? "" },
     { key: "owner", label: "Repository owner", value: existing?.owner ?? "" },
     { key: "repo", label: "Repository name", value: existing?.repo ?? "" },
     { key: "branch", label: "Branch", value: existing?.branch ?? "main" },
-    {
-      key: "token",
-      label: "Access token",
-      value: existing?.token ?? "",
-      type: "password",
-      help: "Create one under Settings → Applications on your Forgejo instance, with read/write permission for repositories. It is stored only in this browser.",
-    },
+    { key: "token", label: "Access token", value: existing?.token ?? "", type: "password" },
   ];
 
-  const inputs = new Map<keyof Connection, HTMLInputElement>();
+  const inputs = new Map<string, HTMLInputElement>();
+  const helps = new Map<string, HTMLElement>();
   for (const f of fields) {
     const id = `connect-${f.key}`;
     const input = el("input", {
@@ -148,24 +210,40 @@ function connectView(): HTMLElement {
       spellcheck: false,
     });
     inputs.set(f.key, input);
-    form.append(
-      el(
-        "p",
-        { class: "admin-field" },
-        el("label", { htmlFor: id }, f.label),
-        input,
-        f.help ? el("span", { class: "admin-help" }, f.help) : null,
-      ),
+    const help = el("span", { class: "admin-help" }, f.help ?? "");
+    helps.set(f.key, help);
+    form.append(el("p", { class: "admin-field", id: `${id}-row` }, el("label", { htmlFor: id }, f.label), input, help),
     );
   }
+
+  const applyProvider = () => {
+    const provider = providerSelect.value as Provider;
+    const baseUrlRow = form.querySelector<HTMLElement>("#connect-baseUrl-row")!;
+    if (provider === "github") {
+      baseUrlRow.hidden = true;
+      inputs.get("baseUrl")!.required = false;
+    } else {
+      baseUrlRow.hidden = false;
+      inputs.get("baseUrl")!.required = true;
+      if (!inputs.get("baseUrl")!.value.trim()) inputs.get("baseUrl")!.value = "https://codeberg.org";
+    }
+    helps.get("token")!.textContent = TOKEN_HELP[provider];
+  };
+  providerSelect.addEventListener("change", applyProvider);
+  applyProvider();
 
   const submit = el("button", { class: "btn", type: "submit" }, "Connect");
   form.append(el("p", {}, submit));
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    const provider = providerSelect.value as Provider;
     const conn: Connection = {
-      baseUrl: inputs.get("baseUrl")!.value.trim().replace(/\/+$/, ""),
+      provider,
+      baseUrl:
+        provider === "github"
+          ? "https://github.com"
+          : inputs.get("baseUrl")!.value.trim().replace(/\/+$/, ""),
       owner: inputs.get("owner")!.value.trim(),
       repo: inputs.get("repo")!.value.trim(),
       branch: inputs.get("branch")!.value.trim() || "main",
@@ -173,8 +251,9 @@ function connectView(): HTMLElement {
     };
     const done = busy(submit, "Connecting…");
     try {
-      const repo = await new Forgejo(conn).getRepo();
+      const repo = await new GitClient(conn).getRepo();
       setConnection(conn);
+      resetCmsConfig();
       toast(`Connected to ${repo.full_name}`);
       location.hash = "#/";
     } catch (err) {
@@ -204,19 +283,25 @@ function dashboardView(): HTMLElement {
   const quick = el(
     "div",
     { class: "admin-quick" },
-    el("a", { class: "btn", href: "#/new/posts" }, "＋ New post"),
-    el("a", { class: "btn btn-secondary", href: "#/new/notes" }, "＋ Note"),
-    el("a", { class: "btn btn-secondary", href: "#/new/pictures" }, "＋ Picture"),
+    ...cfg.collections
+      .slice(0, 3)
+      .map((def, i) =>
+        el(
+          "a",
+          { class: i === 0 ? "btn" : "btn btn-secondary", href: `#/new/${def.key}` },
+          `＋ New ${def.labelSingular}`,
+        ),
+      ),
   );
 
   const cards = el("div", { class: "admin-cards" });
-  for (const def of COLLECTIONS) {
+  for (const def of cfg.collections) {
     cards.append(
       el(
         "a",
         { class: "admin-card", href: `#/list/${def.key}` },
         el("strong", {}, def.label),
-        el("span", { class: "admin-help" }, describeCollection(def)),
+        el("span", { class: "admin-help" }, def.description ?? ""),
       ),
     );
   }
@@ -231,28 +316,13 @@ function dashboardView(): HTMLElement {
       "a",
       { class: "admin-card", href: "#/settings" },
       el("strong", {}, "Settings"),
-      el("span", { class: "admin-help" }, "Connection, fediverse, Bluesky, newsletter"),
+      el("span", { class: "admin-help" }, "Connection, site, fediverse, Bluesky"),
     ),
   );
 
-  return shell(SITE.title, null, quick, cards);
-}
-
-function describeCollection(def: CollectionDef): string {
-  switch (def.key) {
-    case "posts":
-      return "Long-form writing";
-    case "notes":
-      return "Short thoughts, microblog-style";
-    case "pages":
-      return "About, contact and other standalone pages";
-    case "pictures":
-      return "Your photo feed";
-    case "blogroll":
-      return "Sites you recommend";
-    default:
-      return "";
-  }
+  const conn = getConnection();
+  const title = getSiteSettings().title || conn?.repo || "Content";
+  return shell(title, null, quick, cards);
 }
 
 /* ------------------------------------------------------------------------ */
@@ -267,12 +337,12 @@ interface ListedEntry {
 }
 
 async function listView(key: string): Promise<void> {
-  const def = collectionByKey(key);
-  if (!def) throw new Error(`Unknown collection "${key}"`);
-  const fj = forgejo();
+  const def = collection(key);
+  const fj = client();
+  const dateField = dateFieldOf(def);
 
   const files = (await fj.listDir(def.dir)).filter(
-    (e) => e.type === "file" && e.name.endsWith(".md"),
+    (e) => e.type === "file" && /\.mdx?$/.test(e.name),
   );
 
   const entries: ListedEntry[] = await Promise.all(
@@ -281,8 +351,8 @@ async function listView(key: string): Promise<void> {
         const { data } = parseDocument((await fj.getFile(file.path)).text);
         return {
           filename: file.name,
-          title: String(data.title ?? data.name ?? file.name.replace(/\.md$/, "")),
-          date: String(data.date ?? ""),
+          title: String(data.title ?? data.name ?? file.name.replace(/\.mdx?$/, "")),
+          date: dateField ? String(data[dateField] ?? "").slice(0, 10) : "",
           draft: data.draft === true,
         };
       } catch {
@@ -331,9 +401,8 @@ async function listView(key: string): Promise<void> {
 /* ------------------------------------------------------------------------ */
 
 async function editorView(key: string, filename: string | null): Promise<void> {
-  const def = collectionByKey(key);
-  if (!def) throw new Error(`Unknown collection "${key}"`);
-  const fj = forgejo();
+  const def = collection(key);
+  const fj = client();
 
   let sha: string | undefined;
   let data: Frontmatter = {};
@@ -348,9 +417,8 @@ async function editorView(key: string, filename: string | null): Promise<void> {
   } else {
     // New entries start as drafts — publishing is a deliberate act.
     data = { draft: true };
-    if (def.fields.some((f) => f.name === "date")) {
-      data.date = new Date().toISOString().slice(0, 10);
-    }
+    const dateField = dateFieldOf(def);
+    if (dateField) data[dateField] = new Date().toISOString().slice(0, 10);
   }
 
   const isNew = !filename;
@@ -444,7 +512,7 @@ async function editorView(key: string, filename: string | null): Promise<void> {
     try {
       const next = collectValues(def, fieldInputs, data);
       if (draftInput.checked) next.draft = true;
-      const targetName = filename ?? def.newFilename(next);
+      const targetName = filename ?? renderFilename(def, next);
       const path = `${def.dir}/${targetName}`;
       const text = stringifyDocument(next, def.hasBody ? bodyInput.value : "");
       const message = `content: ${isNew ? "create" : "update"} ${path} (via admin)`;
@@ -455,7 +523,7 @@ async function editorView(key: string, filename: string | null): Promise<void> {
         location.hash = `#/edit/${def.key}/${encodeURIComponent(targetName)}`;
       }
     } catch (err) {
-      if (err instanceof ForgejoError && err.status === 422) {
+      if (err instanceof GitError && err.status === 422) {
         toast("A file with this name already exists — change the title.", "error");
       } else {
         toast(err instanceof Error ? err.message : "Saving failed", "error");
@@ -512,7 +580,7 @@ async function editorView(key: string, filename: string | null): Promise<void> {
   }
 
   const publicUrl = filename ? entryRoute(def, filename) : null;
-  const publicHref = publicUrl ? withBase(publicUrl) : null;
+  const publicHref = publicUrl ? siteUrlFor(publicUrl) : null;
   renderView(
     shell(
       isNew ? `New ${def.labelSingular}` : `Edit ${def.labelSingular}`,
@@ -535,7 +603,7 @@ function renderField(
   field: Field,
   data: Frontmatter,
   inputs: Map<string, HTMLInputElement | HTMLTextAreaElement>,
-  fj: Forgejo,
+  fj: GitClient,
 ): HTMLElement {
   const id = `field-${field.name}`;
   const raw = data[field.name];
@@ -574,7 +642,7 @@ function renderField(
   );
 
   if (field.type === "image") {
-    input.placeholder = "/uploads/…";
+    input.placeholder = `${cfg.uploads.publicBase.replace(/\/+$/, "")}/…`;
     wrap.append(
       imageUploadButton(fj, (publicPath) => {
         input.value = publicPath;
@@ -655,7 +723,7 @@ function linkButton(textarea: HTMLTextAreaElement): HTMLButtonElement {
 }
 
 function imageUploadButton(
-  fj: Forgejo,
+  fj: GitClient,
   onUploaded: (publicPath: string, alt: string) => void,
 ): HTMLElement {
   const fileInput = el("input", {
@@ -689,17 +757,25 @@ function imageUploadButton(
   return el("span", { class: "admin-upload" }, button, fileInput);
 }
 
-async function uploadImage(fj: Forgejo, file: File): Promise<string> {
+async function uploadImage(fj: GitClient, file: File): Promise<string> {
   const now = new Date();
   const yyyy = String(now.getUTCFullYear());
   const mm = String(now.getUTCMonth() + 1).padStart(2, "0");
   const extension = (file.name.match(/\.[a-zA-Z0-9]+$/)?.[0] ?? ".bin").toLowerCase();
   const base = slugify(file.name.replace(/\.[^.]+$/, "")) || "image";
   const unique = now.getTime().toString(36).slice(-4);
-  const path = `public/uploads/${yyyy}/${mm}/${base}-${unique}${extension}`;
+  const name = `${yyyy}/${mm}/${base}-${unique}${extension}`;
+  const path = `${cfg.uploads.dir}/${name}`;
   const bytes = new Uint8Array(await file.arrayBuffer());
   await fj.saveBase64(path, bytesToBase64(bytes), `content: upload ${file.name} (via admin)`);
-  return `/${path.slice("public/".length)}`;
+  return `${cfg.uploads.publicBase.replace(/\/+$/, "")}/${name}`;
+}
+
+/** Map a repo path inside the uploads dir to its public URL path. */
+function publicPathOf(repoPath: string): string {
+  const { dir, publicBase } = cfg.uploads;
+  const rel = repoPath.startsWith(`${dir}/`) ? repoPath.slice(dir.length + 1) : repoPath;
+  return `${publicBase.replace(/\/+$/, "")}/${rel}`;
 }
 
 /* --- share (fediverse + atmosphere) --------------------------------------- */
@@ -709,13 +785,14 @@ function shareSection(
   filename: string,
   data: Frontmatter,
   fieldInputs: Map<string, HTMLInputElement | HTMLTextAreaElement>,
-  fj: Forgejo,
+  fj: GitClient,
   isDraft: () => boolean,
   onSha: (sha: string) => void,
 ): HTMLElement {
   const integrations = getIntegrations();
-  const route = entryRoute(def, filename);
-  const url = route ? new URL(withBase(route), SITE.url).href : SITE.url;
+  const site = getSiteSettings();
+  const routePath = entryRoute(def, filename);
+  const url = (routePath ? siteUrlFor(routePath) : null) ?? site.url ?? "";
 
   const statusText = (): string => {
     const title = String(data.title ?? "").trim();
@@ -816,7 +893,7 @@ function shareSection(
 
 /* --- newsletter (Brevo via CI) --------------------------------------------- */
 
-function newsletterSection(filename: string, fj: Forgejo): HTMLElement {
+function newsletterSection(filename: string, fj: GitClient): HTMLElement {
   const slug = filename.replace(/\.md$/, "");
   const button = el("button", { class: "btn btn-secondary", type: "button" }, "Send as newsletter");
   button.addEventListener("click", async () => {
@@ -854,8 +931,8 @@ function newsletterSection(filename: string, fj: Forgejo): HTMLElement {
 /* ------------------------------------------------------------------------ */
 
 async function mediaView(): Promise<void> {
-  const fj = forgejo();
-  const files = await listUploads(fj, "public/uploads", 0);
+  const fj = client();
+  const files = await listUploads(fj, cfg.uploads.dir, 0);
   files.sort((a, b) => b.path.localeCompare(a.path));
 
   const grid = el("ul", { class: "admin-media-grid" });
@@ -864,7 +941,7 @@ async function mediaView(): Promise<void> {
   }
 
   for (const file of files) {
-    const publicPath = `/${file.path.slice("public/".length)}`;
+    const publicPath = publicPathOf(file.path);
     const img = el("img", { alt: "", loading: "lazy" });
     fj.getRawObjectUrl(file.path)
       .then((src) => (img.src = src))
@@ -917,7 +994,7 @@ async function mediaView(): Promise<void> {
   );
 }
 
-async function listUploads(fj: Forgejo, dir: string, depth: number): Promise<DirEntry[]> {
+async function listUploads(fj: GitClient, dir: string, depth: number): Promise<DirEntry[]> {
   if (depth > 4) return [];
   const entries = await fj.listDir(dir);
   const files: DirEntry[] = [];
@@ -938,6 +1015,7 @@ async function listUploads(fj: Forgejo, dir: string, depth: number): Promise<Dir
 function settingsView(): HTMLElement {
   const conn = getConnection()!;
   const integrations = getIntegrations();
+  const site = getSiteSettings();
 
   const field = (
     id: string,
@@ -982,10 +1060,26 @@ function settingsView(): HTMLElement {
     help: "Create one at bsky.app → Settings → App passwords. Never use your main password.",
   });
 
+  const siteTitle = field("set-site-title", "Site title", site.title, {
+    help: "Shown as the dashboard heading.",
+  });
+  const siteUrl = field("set-site-url", "Site URL", site.url, {
+    placeholder: "https://example.com",
+    help: "Public address of the deployed site — used for the View-site link, public URLs and cross-posting.",
+  });
+  const siteBase = field("set-site-base", "Base path", site.basePath, {
+    placeholder: "/",
+    help: 'Sub-path the site is served under; keep "/" when it lives at the domain root.',
+  });
+
   const saveButton = el("button", { class: "btn", type: "submit" }, "Save settings");
   const form = el(
     "form",
     { class: "admin-form" },
+    el("h2", {}, "Site"),
+    siteTitle.wrap,
+    siteUrl.wrap,
+    siteBase.wrap,
     el("h2", {}, "Fediverse (Mastodon)"),
     mastoInstance.wrap,
     mastoToken.wrap,
@@ -1009,6 +1103,11 @@ function settingsView(): HTMLElement {
       blueskyHandle: bskyHandle.input.value.trim().replace(/^@/, ""),
       blueskyPassword: bskyPassword.input.value.trim(),
     });
+    setSiteSettings({
+      title: siteTitle.input.value.trim(),
+      url: siteUrl.input.value.trim().replace(/\/+$/, ""),
+      basePath: siteBase.input.value.trim() || "/",
+    });
     toast("Settings saved.");
   });
 
@@ -1019,6 +1118,7 @@ function settingsView(): HTMLElement {
     location.hash = "#/connect";
   });
 
+  const providerLabel = conn.provider === "github" ? "GitHub" : "Forgejo";
   return shell(
     "Settings",
     "#/",
@@ -1026,7 +1126,12 @@ function settingsView(): HTMLElement {
       "section",
       { class: "card", style: "margin-bottom: 1.5rem;" },
       el("h2", {}, "Connection"),
-      el("p", {}, `${conn.baseUrl}/${conn.owner}/${conn.repo} (branch ${conn.branch})`),
+      el("p", {}, `${providerLabel} — ${conn.owner}/${conn.repo} (branch ${conn.branch})`),
+      el(
+        "p",
+        { class: "admin-help" },
+        `Content model: ${cmsConfigSource() === "repo" ? `${CMS_CONFIG_FILE} from the repository` : `built-in defaults — add a ${CMS_CONFIG_FILE} to the repository root to customise collections and paths`}.`,
+      ),
       el("p", {}, disconnect),
     ),
     form,
@@ -1037,7 +1142,7 @@ function settingsView(): HTMLElement {
       el(
         "p",
         { class: "admin-help" },
-        "Newsletter sending runs in your repository's CI so the Brevo API key is never exposed here. Add the BREVO_API_KEY, BREVO_LIST_IDS, BREVO_SENDER_NAME and BREVO_SENDER_EMAIL secrets to the repository, then use “Send as newsletter” on any post. The signup form on the site is configured in src/config/site.ts.",
+        "Newsletter sending runs in your repository's CI so the Brevo API key is never exposed here. Add the BREVO_API_KEY, BREVO_LIST_IDS, BREVO_SENDER_NAME and BREVO_SENDER_EMAIL secrets to the repository, then use “Send as newsletter” on any post.",
       ),
     ),
   );

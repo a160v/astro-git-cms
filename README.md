@@ -1,184 +1,119 @@
 # astro-git-cms
 
-A tiny, git-based CMS and starter theme for [Astro](https://astro.build).
-Your content lives as Markdown in your own git repository; publishing means
-committing. No database, no server, nothing to maintain.
+A tiny, headless, git-based CMS. Your content is Markdown in your own
+repository — GitHub or Forgejo/Codeberg — and publishing means committing.
+No database, no server, no accounts.
 
-Built with **Bun** and **TypeScript**. Designed for personal sites, with a
-minimalist, Apple-inspired UI and accessibility as a first-class concern.
+Three ways to use it:
 
-## What you get
+1. **Headless** — build the admin as a standalone app and point it at *any*
+   static site's repository (Astro, Hugo, Eleventy…). Your site's deploy
+   pipeline (Cloudflare Pages, GitHub Pages, Codeberg Pages…) picks up the
+   commits and rebuilds.
+2. **Desktop** — [`desktop/`](./desktop) is an offline-first Tauri app with
+   a Notion-like block editor: write on a local clone of your repo, publish
+   (commit + push) with one button. See its README.
+3. **Full site** — this repo is also a complete Astro starter theme (posts,
+   notes, pictures, pages, blogroll) with the admin bundled at `/admin`.
 
-- **Content types**: pages, posts, notes (microblog), pictures (photo feed),
-  and a blogroll shown as a visual grid.
-- **Admin at `/admin`** — a mobile-friendly writing app that commits straight
-  to your Forgejo/Codeberg repository through its API. Write comfortably from
-  a phone.
-- **Drafts** — new entries start as drafts; drafts are saved to git but never
-  built, listed, or syndicated.
-- **Image management** — upload images from the editor or the media library;
-  they are committed to `public/uploads/YYYY/MM/`.
-- **Smart paste** — paste formatted content from Google Docs, Word, Notion,
-  Medium or any web page and it is converted to clean Markdown automatically.
-- **Fediverse + Atmosphere** (both optional) — cross-post entries to Mastodon
-  (ActivityPub) and Bluesky (ATProto) from the admin; replies show up as
-  comments on your site. Purely client-side, conflicts with nothing.
-- **RSS** — feeds for posts (`/rss.xml`) and notes (`/notes/rss.xml`), plus a
-  sitemap and full meta/OpenGraph tags.
-- **Newsletter via Brevo** (optional) — a signup form that posts to your Brevo
-  form endpoint, and a "Send as newsletter" button that emails a post to your
-  subscribers through CI (the API key never touches the browser).
-- **Analytics** (optional) — GoatCounter, privacy-friendly and cookie-free.
-- **Deploys to Codeberg Pages** (or any Forgejo instance) with a one-command
-  `bun run deploy` — no CI runner required.
+Built with **Bun** and **TypeScript**. Mobile-friendly, installable as an
+app (PWA), accessible, and small (~28 kB gzipped).
 
 ## Quick start
 
 ```sh
 bun install
-bun run dev        # local site + admin at http://localhost:4321
-bun test           # unit tests
-bun run build      # static build into dist/
+bun run dev          # theme + admin at http://localhost:4321
+bun run dev:admin    # standalone admin only
+bun test
 ```
 
-Make it yours by editing **`src/config/site.ts`** — title, URL, author,
-navigation, and every feature toggle live there.
+## Headless: manage any site
 
-## Deploying to Codeberg Pages
-
-> **Codeberg does not host Actions runners.** Their Forgejo Actions only run if
-> you attach your own runner, otherwise jobs sit forever in "waiting… no
-> matching online runner with label: docker". So the site is built and
-> published with a one-command script instead of CI — no runner needed.
-
-Codeberg Pages serves whatever is on a branch named `pages`. Decide **where**
-your site lives, because it determines the `base` path:
-
-- **Domain root** — put the build in a repo literally named `pages`
-  (served at `https://<user>.codeberg.page/`). Set `basePath: "/"`.
-- **Sub-path** — serve from another repo's `pages` branch
-  (served at `https://<user>.codeberg.page/<repo>/`). Set
-  `basePath: "/<repo>/"` so every link, asset and image resolves correctly.
-
-Then:
-
-1. In `src/config/site.ts` set `url` to your origin
-   (`https://<user>.codeberg.page`, no sub-path) and `basePath` as above.
-2. Deploy:
-   ```sh
-   bun run deploy
-   ```
-   This builds and force-pushes `dist/` to the `pages` branch of your `origin`.
-   To publish to a different repo (e.g. the root-hosting `pages` repo) or
-   override the base for one build:
-   ```sh
-   DEPLOY_REMOTE=https://codeberg.org/<user>/pages.git SITE_BASE=/ bun run deploy
-   ```
-3. Enable Pages if prompted, and your site is live in a minute or two.
-
-Prefer automated deploys? If you attach your **own** Forgejo runner (label
-`docker`) to the repo, you can have CI run `bun run deploy` on push — but for a
-personal site the one-command deploy is usually less to maintain.
-
-> **Sub-path note:** all of the theme's own links, feeds, and images respect
-> `base`, and Markdown-body links/images (`/uploads/…`) are rewritten at build
-> time. Root hosting (`basePath: "/"`) avoids the sub-path entirely and is the
-> simplest option if you don't need this repo's name in the URL.
-
-## Using the admin
-
-Open `/admin` on your deployed site (or in `bun run dev`) and connect:
-
-- **Instance**: `https://codeberg.org` (or your Forgejo)
-- **Owner / repository / branch**: where this site lives
-- **Access token**: create one under *Settings → Applications* on your Forgejo
-  instance with **read/write repository** permission.
-
-The token is stored **only in that browser's localStorage** — treat the admin
-like a signed-in app on your device, and use a scoped token you can revoke.
-Anyone can *load* `/admin` (it's a static page), but it is useless without a
-valid token; all authorization is enforced by Forgejo.
-
-Every save is a commit; the deploy workflow rebuilds the site. Add `/admin` to
-your phone's home screen for an app-like experience.
-
-## Connecting the fediverse and the atmosphere
-
-Both features are **off per entry until you cross-post** and can be globally
-disabled in `src/config/site.ts` → `features`.
-
-- **Mastodon**: in the admin's Settings, enter your instance and an access
-  token (*Preferences → Development → New application*, `write:statuses`).
-- **Bluesky**: enter your handle and an **app password**
-  (*Settings → App passwords*), never your main password.
-
-Pressing *Post to Mastodon / Bluesky* on an entry announces it with a link and
-writes the announcement URL into the entry's frontmatter (`mastodon:` /
-`bluesky:`). The comments section fetches replies to those announcements in
-the reader's browser and renders them — as plain text, so nobody can inject
-HTML into your pages. Readers reply from their own accounts; there is nothing
-to moderate or host.
-
-Set `fediverse.creator` in the site config to get author attribution
-(`fediverse:creator`) when your links are shared on Mastodon.
-
-## Newsletter (Brevo)
-
-Two pieces, deliberately non-overlapping with what Brevo already does:
-
-1. **Signup form** — create a form in Brevo (*Contacts → Forms*), copy the
-   form's action URL from the HTML embed, and put it in
-   `src/config/site.ts` → `newsletter.brevoFormAction`, then enable
-   `features.newsletter`. The site renders its own accessible form that posts
-   to Brevo; double opt-in, storage and unsubscribes stay in Brevo.
-2. **Sending posts** — add repository secrets `BREVO_API_KEY`,
-   `BREVO_LIST_IDS` (comma-separated), `BREVO_SENDER_EMAIL` and optionally
-   `BREVO_SENDER_NAME`, then use **Send as newsletter** on any published post
-   in the admin (or run the *Send newsletter* workflow manually). The campaign
-   is created and sent by `scripts/send-newsletter.ts` in CI.
-
-## Analytics
-
-Create a free [GoatCounter](https://www.goatcounter.com) account, put your
-code in `src/config/site.ts` → `analytics.goatcounterCode`, and enable
-`features.analytics`. No cookies, GDPR-friendly, and your dashboard lives at
-`https://<code>.goatcounter.com`.
-
-## Content model
-
-```
-src/content/
-  posts/      title, description, date, tags, cover(+alt), draft, mastodon, bluesky
-  notes/      date, draft, mastodon, bluesky           (title-less microblog)
-  pages/      title, description, draft                (served at /<slug>)
-  pictures/   title, date, image, alt (required!), draft, mastodon, bluesky
-  blogroll/   name, url, image(+alt), draft            (body = short description)
+```sh
+bun run build:admin  # → dist-admin/ — a self-contained static app
 ```
 
-Schemas are enforced by Astro content collections (`src/content.config.ts`)
-and mirrored for the admin in `src/admin/schema.ts` — if you add a field, add
-it in both places.
+Host `dist-admin/` anywhere (a Cloudflare Pages project, a `/admin` folder
+of an existing site, or just your laptop) and open it:
 
-## Accessibility
+- **Where is your repository?** GitHub, or any Forgejo/Codeberg instance.
+- **Access token** — GitHub: a fine-grained PAT scoped to the one repository
+  with read/write *Contents*. Forgejo: *Settings → Applications*, repository
+  read/write. Entered once; stored only in that browser/device.
 
-Semantic landmarks, skip link, visible focus rings, `prefers-reduced-motion`
-support, WCAG AA color contrast in light and dark mode, 44px touch targets,
-labeled forms, `aria-live` status messages in the admin, and required alt
-text for pictures. If you find something that could work better with a screen
-reader or keyboard, please open an issue.
+Then describe your site's content model in a **`cms.config.json`** at the
+target repository's root — collections, directories, frontmatter fields,
+filename patterns and upload paths. See
+[`cms.config.example.json`](./cms.config.example.json). Without one, the
+admin manages this theme's default collections.
 
-## Project layout
+Everything the admin does is a commit: create/edit/delete entries, upload
+images, save drafts (`draft: true` in frontmatter). Entries written from
+the admin start as drafts; make sure your site skips drafts when building.
+
+## The admin
+
+- **Write from anywhere** — phone-friendly editor with Markdown toolbar,
+  live preview, and smart paste (Google Docs, Word, Notion, web pages →
+  clean Markdown).
+- **Media library** — upload, browse and delete images; committed to your
+  uploads directory with dated folders.
+- **Cross-post** (optional) — announce entries on Mastodon and Bluesky;
+  replies appear as comments on your site (theme feature).
+- **Newsletter** (optional) — trigger a Brevo send through your repo's CI,
+  so the API key never touches the browser.
+
+## The theme (optional)
+
+A quiet, Apple-inspired personal site: posts, notes (microblog), pictures
+(photo feed), standalone pages, a visual blogroll, RSS feeds, sitemap,
+OpenGraph tags, fediverse/Bluesky comments, GoatCounter analytics and a
+Brevo signup form. Accessibility is a first-class concern (WCAG AA,
+keyboard, screen readers, reduced motion).
+
+Edit **`src/config/site.ts`** — title, URL, author, navigation and every
+feature switch live there. Content schemas are in `src/content.config.ts`.
 
 ```
 src/
-  config/site.ts        ← the one file to edit
-  content/              ← your writing (Markdown)
-  content.config.ts     ← collection schemas
-  layouts/, components/, pages/, styles/   ← the theme
-  admin/                ← the /admin single-page app
-  lib/                  ← shared frontmatter/slug utilities
-scripts/send-newsletter.ts   ← Brevo campaign sender (CI)
-scripts/deploy.sh            ← build + publish to the `pages` branch
-.forgejo/workflows/     ← newsletter workflow (needs a self-hosted runner)
-tests/                  ← bun test
+  config/site.ts   ← the one file to edit
+  content/         ← your writing (posts/, notes/, pages/, pictures/, blogroll/)
+  admin/           ← the CMS app (shared by /admin and the standalone build)
+  layouts/, components/, pages/, styles/  ← the theme
+admin/             ← standalone admin entry + PWA assets
+scripts/           ← deploy.sh (Codeberg Pages), send-newsletter.ts (Brevo)
 ```
+
+### Deploying the theme
+
+- **Cloudflare Pages / GitHub Pages**: build command `bun run build`, output
+  `dist/`.
+- **Codeberg Pages** (no CI runner needed): set `url`/`basePath` in
+  `src/config/site.ts`, then `bun run deploy` — it builds and pushes `dist/`
+  to the `pages` branch. Serving from a sub-path? Set `basePath: "/<repo>/"`.
+
+## Integrations, in one paragraph each
+
+**Mastodon / Bluesky** — in the admin's Settings, add your Mastodon instance
++ token (`write:statuses`) and/or Bluesky handle + app password. *Post to
+Mastodon/Bluesky* announces an entry and records the announcement URL in its
+frontmatter; the theme's comments section then renders replies (as plain
+text) fetched in the reader's browser. Nothing to host or moderate.
+
+**Newsletter (Brevo)** — add `BREVO_API_KEY`, `BREVO_LIST_IDS`,
+`BREVO_SENDER_EMAIL` (and optionally `BREVO_SENDER_NAME`) as repository
+secrets; the *Send as newsletter* button dispatches
+`.forgejo/workflows/newsletter.yml`, which runs
+`scripts/send-newsletter.ts` in CI. The signup form is enabled in
+`src/config/site.ts` with your Brevo form's action URL.
+
+**Analytics (GoatCounter)** — put your code in `src/config/site.ts` and
+enable `features.analytics`. Cookie-free.
+
+## Security model
+
+The admin is a static page; anyone can load it, nobody can use it without a
+repository token. Tokens live in the browser's localStorage only and go
+straight to your forge's API — treat the admin like a signed-in app on your
+device, and use a narrowly-scoped token you can revoke.

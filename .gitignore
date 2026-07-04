@@ -1,5 +1,6 @@
 # build output
 dist/
+dist-admin/
 # generated types
 .astro/
 
@@ -13,3 +14,9 @@ node_modules/
 # misc
 .DS_Store
 *.log
+
+# desktop app
+desktop/node_modules/
+desktop/dist/
+desktop/src-tauri/target/
+desktop/src-tauri/gen/

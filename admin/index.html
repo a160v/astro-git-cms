@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Writer</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#101014" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icon.svg" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Writer" />
+  </head>
+  <body>
+    <div id="admin-app" aria-live="polite">
+      <div class="admin-view">
+        <p class="muted" style="padding-top: 2rem;">Loading…</p>
+        <noscript><p>This app needs JavaScript — it talks to your git repository from this browser.</p></noscript>
+      </div>
+    </div>
+    <script type="module" src="../src/admin/standalone.ts"></script>
+  </body>
+</html>

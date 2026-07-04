@@ -1,0 +1,58 @@
+{
+  "$comment": "Copy this file to the ROOT of the repository the admin connects to, rename it cms.config.json, and adjust it to that site's content model. Without one, the admin manages this repo's default collections (posts/notes/pages/pictures/blogroll). Filename patterns support {slug}, {date} and {time}; '.md' is appended automatically.",
+  "uploads": {
+    "dir": "public/assets/uploads",
+    "publicBase": "/assets/uploads"
+  },
+  "collections": [
+    {
+      "key": "blog",
+      "label": "Blog posts",
+      "labelSingular": "post",
+      "description": "Long-form writing",
+      "dir": "src/content/blog",
+      "route": "/blog",
+      "hasBody": true,
+      "bodyLabel": "Body",
+      "supportsCrosspost": true,
+      "supportsNewsletter": false,
+      "filename": "{slug}",
+      "fields": [
+        { "name": "title", "label": "Title", "type": "text", "required": true },
+        { "name": "description", "label": "Description", "type": "textarea", "help": "Shown in lists, feeds and social cards." },
+        { "name": "pubDate", "label": "Date", "type": "date", "required": true },
+        { "name": "updatedDate", "label": "Updated", "type": "date" },
+        { "name": "tags", "label": "Tags", "type": "tags", "help": "Separate with commas." }
+      ]
+    },
+    {
+      "key": "notes",
+      "label": "Notes",
+      "labelSingular": "note",
+      "description": "Short thoughts, microblog-style",
+      "dir": "src/content/notes",
+      "route": "/notes",
+      "bodyLabel": "Note",
+      "supportsCrosspost": true,
+      "filename": "{date}-{time}",
+      "fields": [{ "name": "date", "label": "Date", "type": "date", "required": true }]
+    },
+    {
+      "key": "pictures",
+      "label": "Pictures",
+      "labelSingular": "picture",
+      "description": "Your photo feed",
+      "dir": "src/content/pictures",
+      "route": "/pictures",
+      "bodyLabel": "Caption",
+      "supportsCrosspost": true,
+      "filename": "{date}-{slug}",
+      "fields": [
+        { "name": "title", "label": "Title", "type": "text" },
+        { "name": "date", "label": "Date", "type": "date", "required": true },
+        { "name": "image", "label": "Image", "type": "image", "required": true },
+        { "name": "alt", "label": "Image description (alt text)", "type": "textarea", "required": true }
+      ]
+    }
+  ]
+}
