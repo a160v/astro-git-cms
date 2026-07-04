@@ -92,6 +92,12 @@
   margin: 0 0 1.1rem;
 }
 
+/* The display rules above would otherwise defeat the hidden attribute. */
+.admin-form [hidden],
+.admin-editor [hidden] {
+  display: none !important;
+}
+
 .admin-field input,
 .admin-field textarea {
   width: 100%;
