@@ -1,12 +1,15 @@
 {
   "name": "astro-git-cms",
-  "description": "A git-based CMS and starter theme for Astro. Static, mobile-friendly, fediverse- and ATProto-connected. Deployable on Forgejo/Codeberg Pages.",
+  "description": "A headless, git-based CMS — plus an optional Astro starter theme. Writes to any GitHub or Forgejo/Codeberg repository. Static, mobile-friendly, fediverse- and ATProto-connected.",
   "type": "module",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
+    "dev:admin": "vite --config vite.config.admin.ts",
+    "build:admin": "vite build --config vite.config.admin.ts",
+    "preview:admin": "vite preview --config vite.config.admin.ts",
     "check": "astro check",
     "test": "bun test",
     "deploy": "bash scripts/deploy.sh",
@@ -23,6 +26,7 @@
     "@astrojs/check": "^0.9.9",
     "@types/bun": "^1.3.14",
     "@types/turndown": "^5.0.6",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vite": "^7.3.4"
   }
 }
