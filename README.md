@@ -4,13 +4,16 @@ A tiny, headless, git-based CMS. Your content is Markdown in your own
 repository — GitHub or Forgejo/Codeberg — and publishing means committing.
 No database, no server, no accounts.
 
-Two ways to use it:
+Three ways to use it:
 
 1. **Headless** — build the admin as a standalone app and point it at *any*
    static site's repository (Astro, Hugo, Eleventy…). Your site's deploy
    pipeline (Cloudflare Pages, GitHub Pages, Codeberg Pages…) picks up the
    commits and rebuilds.
-2. **Full site** — this repo is also a complete Astro starter theme (posts,
+2. **Desktop** — [`desktop/`](./desktop) is an offline-first Tauri app with
+   a Notion-like block editor: write on a local clone of your repo, publish
+   (commit + push) with one button. See its README.
+3. **Full site** — this repo is also a complete Astro starter theme (posts,
    notes, pictures, pages, blogroll) with the admin bundled at `/admin`.
 
 Built with **Bun** and **TypeScript**. Mobile-friendly, installable as an
