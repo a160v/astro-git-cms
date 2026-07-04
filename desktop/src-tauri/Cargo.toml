@@ -16,4 +16,14 @@ tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-git2 = "0.20"
+# Self-contained git over HTTPS. We drop git2's default SSH feature (which
+# pulls libssh2-sys) and build both libgit2 and OpenSSL from vendored source,
+# so the app compiles with just a C toolchain + perl — no system libgit2 /
+# OpenSSL and no pkg-config, which macOS does not ship. Pushing authenticates
+# through the git credential helper (e.g. `gh auth login`), so no token is
+# stored by the app.
+git2 = { version = "0.20", default-features = false, features = [
+    "https",
+    "vendored-libgit2",
+    "vendored-openssl",
+] }
